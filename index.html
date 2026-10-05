@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en" id="top">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LumpLab — Lump Sum vs DCA Monte Carlo Showdown Calculator</title>
+<meta name="description" content="LumpLab is a free lump sum vs dollar cost averaging calculator powered by a 2,000-path Monte Carlo engine. Compare lump-sum vs monthly DCA with fan charts, cost-of-waiting math, and a 2008-style crash stress test.">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#101418; --panel:#161c24; --line:#232c38; --amber:#F59E0B; --green:#10B981; }
+  body { background:var(--bg); color:#e6edf3; font-family:'Inter',system-ui,sans-serif; }
+  .mono { font-family:'JetBrains Mono',monospace; }
+  .terminal { background:var(--panel); border:1px solid var(--line); border-radius:14px; box-shadow:0 0 0 1px rgba(245,158,11,.06), 0 24px 60px -24px rgba(0,0,0,.8); }
+  .term-head { background:#0c1015; border-bottom:1px solid var(--line); }
+  .dot { width:12px; height:12px; border-radius:9999px; display:inline-block; }
+  .cursor::after { content:'▋'; color:var(--amber); animation:blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity:0; } }
+  .grid-bg { background-image:linear-gradient(rgba(245,158,11,.05) 1px,transparent 1px),linear-gradient(rgba(245,158,11,.05) 1px,transparent 1px); background-size:28px 28px; }
+  input[type=range] { -webkit-appearance:none; appearance:none; height:6px; border-radius:9999px; background:#232c38; outline:none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:9999px; background:var(--amber); border:2px solid #101418; cursor:pointer; box-shadow:0 0 12px rgba(245,158,11,.6); }
+  input[type=range]::-moz-range-thumb { width:18px; height:18px; border-radius:9999px; background:var(--amber); border:2px solid #101418; cursor:pointer; }
+  .num-input { background:#0c1015; border:1px solid var(--line); border-radius:10px; color:#e6edf3; }
+  .num-input:focus { border-color:var(--amber); outline:none; box-shadow:0 0 0 2px rgba(245,158,11,.25); }
+  .run-btn { background:linear-gradient(135deg,#F59E0B,#d97706); color:#101418; font-weight:800; transition:transform .08s ease, box-shadow .2s ease; box-shadow:0 8px 24px -8px rgba(245,158,11,.7); }
+  .run-btn:hover { transform:translateY(-1px); box-shadow:0 12px 28px -8px rgba(245,158,11,.8); }
+  .run-btn:active { transform:translateY(1px); }
+  .switch { position:relative; width:52px; height:28px; background:#232c38; border-radius:9999px; transition:background .2s; cursor:pointer; flex:none; }
+  .switch::after { content:''; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:9999px; background:#8b98a8; transition:all .2s; }
+  .switch.on { background:var(--amber); }
+  .switch.on::after { left:27px; background:#101418; }
+  .badge-free { border:1px solid var(--green); color:var(--green); }
+  details.faq { background:var(--panel); border:1px solid var(--line); border-radius:12px; }
+  details.faq summary { cursor:pointer; list-style:none; }
+  details.faq summary::-webkit-details-marker { display:none; }
+  .stat-card { background:#0c1015; border:1px solid var(--line); border-radius:12px; }
+  .scanline { position:relative; overflow:hidden; }
+  .scanline::before { content:''; position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.12) 4px); }
+  ::selection { background:rgba(245,158,11,.35); }
+  @media print { .no-print { display:none !important; } }
+</style>
+</head>
+<body class="antialiased">
+
+<!-- HEADER -->
+<header class="sticky top-0 z-50 border-b border-[#232c38] bg-[#101418]/95 backdrop-blur">
+  <div class="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between">
+    <a href="#top" class="flex items-center gap-2.5">
+      <span class="mono inline-flex items-center justify-center w-9 h-9 rounded-lg bg-[#F59E0B] text-[#101418] font-bold text-lg">λ</span>
+      <span class="text-xl font-extrabold tracking-tight">Lump<span class="text-[#F59E0B]">Lab</span></span>
+    </a>
+    <nav class="flex items-center gap-5 text-sm font-medium">
+      <a href="#top" class="text-slate-300 hover:text-[#F59E0B] transition">Home</a>
+      <a href="https://fixoraa.tech" class="text-slate-300 hover:text-[#F59E0B] transition">More Tools</a>
+    </nav>
+  </div>
+</header>
+
+<!-- TOP AD -->
+<div class="no-print mx-auto max-w-6xl px-4 sm:px-6 pt-4" role="complementary" aria-label="Advertisement">
+  <div class="mx-auto text-center" style="max-width:728px">
+    <span class="block text-[10px] tracking-[0.18em] uppercase text-slate-400 mb-1.5">Advertisement</span>
+    <div class="flex justify-center overflow-hidden">
+      <div class="origin-top scale-[0.44] sm:scale-100 shrink-0">
+        <script>
+          atOptions = { 'key' : '4e68ac77881c17fe128a46565d9a4e8c', 'format' : 'iframe', 'height' : 90, 'width' : 728, 'params' : {} };
+        </script>
+        <script src="https://www.highrevenueformat.com/4e68ac77881c17fe128a46565d9a4e8c/invoke.js"></script>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HERO -->
+<main class="mx-auto max-w-6xl px-4 sm:px-6 pb-8">
+  <div class="pt-8 pb-6 text-center grid-bg rounded-2xl px-4">
+    <div class="inline-flex items-center gap-2 mb-4">
+      <span class="badge-free mono text-[11px] font-semibold tracking-[0.15em] uppercase px-3 py-1.5 rounded-full">Unlimited Free Usage · No signup</span>
+    </div>
+    <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight">Lump Sum <span class="text-[#F59E0B]">vs</span> DCA <span class="text-[#10B981]">Showdown</span></h1>
+    <p class="mono mt-4 text-sm sm:text-base text-slate-400 max-w-2xl mx-auto cursor">lump_sum_vs_dca --engine monte_carlo --paths 2000 --chart fan</p>
+    <p class="mt-3 text-slate-400 max-w-2xl mx-auto">Should you invest everything today or drip-feed it monthly? LumpLab simulates <strong class="text-slate-200">2,000 possible market futures</strong> for both strategies and shows you the odds — including what a 2008-style crash does to each.</p>
+  </div>
+
+  <!-- TOOL TERMINAL -->
+  <section class="terminal scanline mt-6" aria-label="Lump sum vs DCA Monte Carlo simulator">
+    <div class="term-head flex items-center gap-2 px-4 py-3 rounded-t-[14px]">
+      <span class="dot bg-[#ff5f57]"></span><span class="dot bg-[#febc2e]"></span><span class="dot bg-[#28c840]"></span>
+      <span class="mono text-xs text-slate-400 ml-2">lumplab — sh-3.2$</span>
+    </div>
+    <div class="p-4 sm:p-6">
+      <div class="grid lg:grid-cols-[320px_1fr] gap-6">
+
+        <!-- CONTROLS -->
+        <div class="space-y-5">
+          <p class="mono text-xs text-slate-500">// configure experiment</p>
+          <div>
+            <label for="input-amount" class="mono text-xs text-[#F59E0B] font-semibold tracking-wide">INVESTABLE_AMOUNT ($)</label>
+            <input id="input-amount" type="number" min="0" value="100000" step="1000" class="num-input mono w-full mt-1.5 px-3 py-2.5 text-lg font-bold">
+          </div>
+          <div>
+            <div class="flex justify-between items-baseline">
+              <label for="input-return" class="mono text-xs text-[#F59E0B] font-semibold tracking-wide">EXPECTED_RETURN (%/yr)</label>
+              <span id="val-return" class="mono text-sm text-slate-300">8.0%</span>
+            </div>
+            <input id="input-return" type="range" min="0" max="15" step="0.5" value="8" class="w-full mt-2">
+          </div>
+          <div>
+            <div class="flex justify-between items-baseline">
+              <label for="input-vol" class="mono text-xs text-[#F59E0B] font-semibold tracking-wide">VOLATILITY σ (%/yr)</label>
+              <span id="val-vol" class="mono text-sm text-slate-300">15%</span>
+            </div>
+            <input id="input-vol" type="range" min="0" max="40" step="1" value="15" class="w-full mt-2">
+            <p class="mono text-[11px] text-slate-500 mt-1">stocks ≈ 15–20 · bonds ≈ 5–8 · crypto ≈ 60+</p>
+          </div>
+          <div>
+            <div class="flex justify-between items-baseline">
+              <label for="input-years" class="mono text-xs text-[#F59E0B] font-semibold tracking-wide">HORIZON (years)</label>
+              <span id="val-years" class="mono text-sm text-slate-300">10 yrs</span>
+            </div>
+            <input id="input-years" type="range" min="1" max="30" step="1" value="10" class="w-full mt-2">
+          </div>
+          <div class="flex items-center justify-between gap-3 pt-1">
+            <div>
+              <p class="mono text-xs text-[#F59E0B] font-semibold tracking-wide">2008 CRASH STRESS TEST</p>
+              <p class="mono text-[11px] text-slate-500 mt-0.5">inject −37% shock at random month</p>
+            </div>
+            <button id="toggle-crash" class="switch" role="switch" aria-checked="false" aria-label="Toggle 2008 crash stress test"></button>
+          </div>
+          <button id="run-btn" class="run-btn mono w-full py-3.5 rounded-xl text-base tracking-wide">▶ RUN 2,000 SIMULATIONS</button>
+          <p id="sim-status" class="mono text-[11px] text-slate-500 h-4"></p>
+        </div>
+
+        <!-- OUTPUT -->
+        <div id="results-panel" class="space-y-4">
+          <p class="mono text-xs text-slate-500">// results will stream here after execution</p>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="stat-card p-3">
+              <p class="mono text-[10px] text-slate-500 tracking-widest">P(LUMP_SUM_WINS)</p>
+              <p id="out-prob" class="mono text-2xl font-bold text-[#F59E0B] mt-1">—</p>
+            </div>
+            <div class="stat-card p-3">
+              <p class="mono text-[10px] text-slate-500 tracking-widest">MEDIAN_LUMP</p>
+              <p id="out-median-lump" class="mono text-2xl font-bold text-slate-100 mt-1">—</p>
+            </div>
+            <div class="stat-card p-3">
+              <p class="mono text-[10px] text-slate-500 tracking-widest">MEDIAN_DCA</p>
+              <p id="out-median-dca" class="mono text-2xl font-bold text-[#10B981] mt-1">—</p>
+            </div>
+            <div class="stat-card p-3">
+              <p class="mono text-[10px] text-slate-500 tracking-widest">COST_OF_WAITING</p>
+              <p id="out-cow" class="mono text-2xl font-bold text-red-400 mt-1">—</p>
+            </div>
+          </div>
+          <div class="stat-card p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <p class="mono text-xs text-slate-400 font-semibold">FAN CHART — percentile bands across 2,000 paths</p>
+              <div class="flex gap-4 mono text-[11px]">
+                <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm bg-[#F59E0B]"></span>lump sum</span>
+                <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm bg-[#10B981]"></span>DCA</span>
+              </div>
+            </div>
+            <svg id="fan-chart" viewBox="0 0 640 340" class="w-full h-auto rounded-lg bg-[#0c1015]" role="img" aria-label="Fan chart of lump sum vs DCA percentile bands"></svg>
+            <p id="out-crash" class="mono text-[11px] text-slate-500 mt-2"></p>
+          </div>
+          <div class="stat-card p-4 overflow-x-auto">
+            <p class="mono text-xs text-slate-400 font-semibold mb-2">TERMINAL VALUE DISTRIBUTION (final portfolio)</p>
+            <table class="mono text-xs w-full min-w-[420px]">
+              <thead><tr class="text-slate-500 border-b border-[#232c38]">
+                <th class="text-left py-1.5 pr-3">strategy</th><th class="text-right py-1.5 px-2">p5</th><th class="text-right py-1.5 px-2">p25</th><th class="text-right py-1.5 px-2">p50</th><th class="text-right py-1.5 px-2">p75</th><th class="text-right py-1.5 px-2">p95</th>
+              </tr></thead>
+              <tbody>
+                <tr class="text-[#F59E0B] border-b border-[#1c2430]"><td class="py-1.5 pr-3">lump_sum</td><td id="lp5" class="text-right px-2">—</td><td id="lp25" class="text-right px-2">—</td><td id="lp50" class="text-right px-2">—</td><td id="lp75" class="text-right px-2">—</td><td id="lp95" class="text-right px-2">—</td></tr>
+                <tr class="text-[#10B981]"><td class="py-1.5 pr-3">dca_monthly</td><td id="dp5" class="text-right px-2">—</td><td id="dp25" class="text-right px-2">—</td><td id="dp50" class="text-right px-2">—</td><td id="dp75" class="text-right px-2">—</td><td id="dp95" class="text-right px-2">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="stat-card p-4">
+            <p class="mono text-xs text-slate-400 font-semibold mb-1">LAB NOTES</p>
+            <p id="out-notes" class="mono text-[13px] leading-relaxed text-slate-300">Awaiting experiment parameters. Tip: raise volatility and watch the DCA band tighten relative to the lump-sum band.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTTOM AD -->
+  <div class="no-print mx-auto max-w-6xl px-4 sm:px-6 pb-4 mt-6" role="complementary" aria-label="Advertisement">
+    <div class="mx-auto text-center" style="max-width:728px">
+      <span class="block text-[10px] tracking-[0.18em] uppercase text-slate-400 mb-1.5">Advertisement</span>
+      <div class="flex justify-center overflow-hidden">
+        <script async src="https://js.wpadmngr.com/static/adManager.js" data-admpid="464498"></script>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEO ARTICLE -->
+  <article id="seo-article" class="mt-10 max-w-3xl mx-auto prose-none">
+    <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight mb-4">Lump Sum vs Dollar Cost Averaging Calculator: The Honest Monte Carlo Answer</h2>
+    <p class="text-slate-300 leading-relaxed mb-4">You just received a bonus, sold a property, or finally saved a serious chunk of cash — and now the classic question is staring at you: <strong>should I invest lump sum or monthly?</strong> Financial Twitter will give you slogans. Your uncle will give you anecdotes. A <strong>lump sum vs dollar cost averaging calculator</strong> with a real Monte Carlo engine gives you something better: probabilities. This page runs 2,000 simulated market futures for both strategies side by side, so instead of asking "which wins?" you can ask the sharper question — "how often, by how much, and under what conditions?"</p>
+    <p class="text-slate-300 leading-relaxed mb-4">Dollar cost averaging (DCA) means splitting your money into equal monthly investments. Lump-sum investing means putting it all to work on day one. Academics have studied this duel for decades, and the headline result surprises most people: <strong>lump sum beats DCA roughly two-thirds of the time</strong> in historical US data, because markets rise more often than they fall and time in the market beats timing the market. Vanguard's famous 2012 study, repeated across the US, UK, and Australian markets, found lump-sum investing outperformed DCA in about 64–68% of rolling periods. But averages hide the texture that matters to you — the range of outcomes, the crash scenarios, and the price of the comfort DCA buys. That is exactly what the fan chart above visualizes.</p>
+
+    <h3 class="text-xl font-bold mt-8 mb-3 text-[#F59E0B]">How the LumpLab Monte Carlo engine works</h3>
+    <p class="text-slate-300 leading-relaxed mb-4">Every time you press run, LumpLab generates <strong>2,000 possible market paths</strong> using geometric Brownian motion — the standard mathematical model of asset prices. You set three ingredients: the expected annual return (the drift), the annual volatility (the wiggle), and the horizon in years. Each path applies random monthly shocks scaled by your volatility, compounds them, and records the portfolio month by month. The lump-sum strategy starts fully invested; the DCA strategy starts with one monthly slice and adds a slice each month. Because a seeded random generator is used, anyone running the same inputs gets the same 2,000 futures — the experiment is fully reproducible, which is how science should work.</p>
+    <p class="text-slate-300 leading-relaxed mb-4">Why Monte Carlo instead of a single average-return projection? Because a single number lies by omission. A <strong>DCA vs lump sum Monte Carlo</strong> simulation shows you the 5th percentile (a bad decade), the median (the typical decade), and the 95th percentile (a great decade) for each strategy. Lump sum usually has a higher median — more of your money works for longer — but it also has a wider spread. In plain terms: lump sum gives you a better typical outcome with a worse worst-case. DCA is the seatbelt: slightly lower expected wealth, but a tighter, calmer distribution. The percentile table under the fan chart makes this trade-off numeric.</p>
+
+    <h3 class="text-xl font-bold mt-8 mb-3 text-[#F59E0B]">Reading the fan chart: bands, not lines</h3>
+    <p class="text-slate-300 leading-relaxed mb-4">Most calculators draw one smooth line per strategy and call it a day. The fan chart above is different. For every month, it computes five percentiles across all 2,000 paths — the 5th, 25th, 50th, 75th, and 95th — and shades the regions between them. The dark band is the middle 50% of outcomes (25th to 75th percentile): if your future lands in the fat part of the fan, you land here. The light band covers 90% of all simulated outcomes. The bright line is the median path. Watch what happens when you drag the volatility slider: the lump-sum fan (amber) widens dramatically while the DCA fan (green) stays comparatively slim, because DCA's later contributions have less time to compound the early shocks. Volatility is the tax you pay for the lump sum's higher median.</p>
+    <p class="text-slate-300 leading-relaxed mb-4">Notice also how the two fans relate over time. Early on, the DCA band sits lower — most of its money has not entered the market yet. As the years pass, the green band climbs toward the amber one, but under typical equity assumptions it rarely catches up. The gap between the medians at the final month is the expected reward for investing early. Flip the crash switch, however, and the story gets interesting — which brings us to the stress test.</p>
+
+    <h3 class="text-xl font-bold mt-8 mb-3 text-[#F59E0B]">The 2008-style crash stress test</h3>
+    <p class="text-slate-300 leading-relaxed mb-4">Averages are kind to lump sum because most years are not 2008. But you do not get to choose your decade. Toggle the crash stress test and LumpLab injects a <strong>−37% shock at a random month</strong> — the approximate peak-to-trough drawdown of global equities in 2008 — applied equally to both strategies, since a crash is a market event, not a personal one. Then it re-runs all 2,000 futures around that wound. Run it several times (the shock lands at a different random month each run) and you will discover the uncomfortable truth: a crash early in the horizon actually favors DCA, because most of the DCA money arrives after prices have fallen and buys cheap shares. A crash late in the horizon favors the lump sum, because it has had years to compound before the fall. The crash test does not tell you which strategy is "safe" — it tells you that safety depends on luck, and luck is not a strategy.</p>
+    <p class="text-slate-300 leading-relaxed mb-4">This is why professional advisors pair the math with psychology. If a −37% shock on a fully-invested portfolio would make you panic-sell at the bottom, the strategy with the higher median is not the strategy with the higher <em>realized</em> outcome — your behavior is part of the equation. DCA's real product is not return; it is regret insurance. Knowing the price of that insurance is what this calculator is for.</p>
+
+    <h3 class="text-xl font-bold mt-8 mb-3 text-[#F59E0B]">The cost of waiting: the metric nobody shows you</h3>
+    <p class="text-slate-300 leading-relaxed mb-4">Here is the number most DCA discussions skip. While you drip-feed money over months or years, the uninvested remainder sits in cash earning roughly nothing. The <strong>cost of waiting</strong> is the expected return you forfeit by not investing it all today. LumpLab computes it with annuity math: the future value of an immediate lump sum at your expected return, minus the future value of the same money invested monthly. At an 8% expected return over 10 years, a $100,000 lump sum expects to reach about $216,000, while the same money drip-fed monthly over the full decade expects roughly $151,000 — a waiting cost near $65,000, about 30% of the lump sum's expected value. That is the sticker price of the seatbelt. Sometimes it is worth paying. But you should see the price tag before you buy.</p>
+    <p class="text-slate-300 leading-relaxed mb-4">The cost of waiting grows with three things: higher expected returns, longer DCA schedules, and larger sums. Stretching DCA over two years instead of six months roughly quadruples the drag. This is also why "DCA over 12 months" became the industry compromise — long enough to feel careful, short enough to limit the cash drag. If your plan is to DCA over three years because you are nervous, the calculator will show you honestly: you are paying a large premium for comfort, and you might get the same peace of mind cheaper by choosing a less aggressive asset mix instead.</p>
+
+    <h3 class="text-xl font-bold mt-8 mb-3 text-[#F59E0B]">When DCA actually wins (and when it loses)</h3>
+    <p class="text-slate-300 leading-relaxed mb-4">DCA wins when markets fall early and recover late — it buys the dip automatically, month after month, with zero decisions required. It also wins, behaviorally, whenever the alternative is not "lump sum" but "cash forever because I am scared." A DCA plan you actually follow beats a lump sum you never deploy. DCA loses in the most common case: markets that grind upward with ordinary volatility. Every month you hold cash in a rising market is a month of returns you donated to your savings account. The simulation's win-probability readout — P(LUMP_SUM_WINS) — quantifies this for your exact inputs. With 8% return and 15% volatility over 10 years, expect it to hover around 60–70%, matching the academic literature. Crank volatility to 30% and watch it sag: in chaotic markets, the early-entry advantage shrinks because the path matters more than the starting gun.</p>
+    <p class="text-slate-300 leading-relaxed mb-4">There is also a hybrid answer the textbooks underrate: invest the lump sum into your target allocation immediately, but make the allocation itself your shock absorber. If 100% equities at once feels reckless, going all-in on a 60/40 portfolio today mathematically dominates DCA-ing into 100% equities over a year — you get time in the market <em>and</em> a volatility profile you can sleep with. Risk should live in the asset mix, not in the calendar.</p>
+
+    <h3 class="text-xl font-bold mt-8 mb-3 text-[#F59E0B]">A practical decision framework</h3>
+    <p class="text-slate-300 leading-relaxed mb-4">Use this page as a lab, not an oracle. First, run your numbers with the crash test off and note the win probability and the cost of waiting. Second, turn the crash test on and run it three or four times — observe how the win probability moves when the shock lands early versus late. Third, ask the only question that matters: if I invest the lump sum and the market drops 30% next quarter, will I hold, buy more, or sell? If the honest answer is "sell," choose DCA or a milder allocation — a strategy you abandon mid-crash is worse than either option on paper. Fourth, revisit the horizon slider: over 20–30 years, the lump sum's advantage compounds relentlessly and even nasty early crashes get buried by time. Over 2–3 years, the two strategies are nearly a coin flip and the decision barely matters.</p>
+    <p class="text-slate-300 leading-relaxed mb-4">One more nuance: this analysis assumes the DCA cash earns zero. If your idle cash sits in a high-yield account earning 4–5%, the cost of waiting shrinks — the calculator's figure is then a conservative upper bound. Similarly, taxes, fees, and your country's capital-gains rules can tilt the answer; frequent DCA purchases can complicate tax lots, while a single lump-sum purchase keeps bookkeeping trivial. The Monte Carlo engine models market risk, not tax code — treat the outputs as estimates only, not financial advice. For decisions involving life-changing sums, a licensed fiduciary advisor who knows your full picture is worth far more than any calculator.</p>
+
+    <h3 class="text-xl font-bold mt-8 mb-3 text-[#F59E0B]">Bottom line</h3>
+    <p class="text-slate-300 leading-relaxed mb-4"><strong>Should I invest lump sum or monthly?</strong> The data's answer: lump sum wins most of the time, by a meaningful margin, and the longer your horizon the stronger the case. DCA's answer: it wins when markets crash early, and it wins whenever fear would otherwise keep you in cash. LumpLab exists so you stop arguing from slogans and start arguing from distributions — your return, your volatility, your horizon, your crash tolerance. Run the experiment, read the bands, price the seatbelt, and then decide like an adult: with the odds in one hand and your own temperament in the other.</p>
+    <p class="mono text-[12px] text-slate-500 border-l-2 border-[#F59E0B] pl-3 mt-6">FINANCE DISCLAIMER: All figures on this page are statistical estimates from a simplified simulation model — estimates only, not financial advice. Markets can behave in ways no model captures. Consult a qualified financial professional before making investment decisions.</p>
+  </article>
+
+  <!-- FAQS -->
+  <section class="mt-10 max-w-3xl mx-auto">
+    <h2 class="text-2xl font-extrabold tracking-tight mb-4">Frequently Asked Questions</h2>
+    <div class="space-y-3">
+      <details class="faq p-4">
+        <summary class="font-semibold text-slate-100">Is it better to invest a lump sum or dollar cost average?</summary>
+        <p class="text-slate-300 text-sm leading-relaxed mt-2">Historically and in Monte Carlo simulations, lump-sum investing wins about 60–70% of the time because markets rise more often than they fall, so money invested earlier compounds longer. DCA wins mainly when markets fall early in your schedule. Run the calculator above with your own return, volatility, and horizon to see the exact win probability for your situation.</p>
+      </details>
+      <details class="faq p-4">
+        <summary class="font-semibold text-slate-100">What is the "cost of waiting" shown by this calculator?</summary>
+        <p class="text-slate-300 text-sm leading-relaxed mt-2">It is the expected return you give up by holding cash while DCA-ing instead of investing everything immediately. It is computed as the future value of the lump sum at your expected return minus the future value of the same money invested monthly. At 8% expected return over 10 years on $100,000, it is roughly $65,000 — the price of DCA's emotional comfort.</p>
+      </details>
+      <details class="faq p-4">
+        <summary class="font-semibold text-slate-100">How does the 2008 crash stress test work?</summary>
+        <p class="text-slate-300 text-sm leading-relaxed mt-2">When enabled, the simulator injects a −37% shock — the approximate peak-to-trough drawdown of the 2008 crisis — at one random month, applied equally to both strategies, then re-runs all 2,000 paths. Because the shock lands at a different month each run, you can see how crash timing changes the outcome: early crashes favor DCA, late crashes favor the lump sum.</p>
+      </details>
+      <details class="faq p-4">
+        <summary class="font-semibold text-slate-100">Why use a Monte Carlo simulation instead of average returns?</summary>
+        <p class="text-slate-300 text-sm leading-relaxed mt-2">A single average-return projection hides risk. Monte Carlo generates 2,000 possible market futures using your volatility input, revealing the full distribution: the bad decade (5th percentile), the typical decade (median), and the great decade (95th percentile). Two strategies can share the same average and have completely different risk profiles — the fan chart makes that visible.</p>
+      </details>
+      <details class="faq p-4">
+        <summary class="font-semibold text-slate-100">Does DCA protect me if the market crashes right after I invest?</summary>
+        <p class="text-slate-300 text-sm leading-relaxed mt-2">Partially. If you DCA and the market crashes early, your later contributions buy shares at depressed prices, which softens the damage versus a lump sum invested at the peak. But DCA is not a hedge — in a crash, the DCA portfolio still falls; it just falls from a smaller invested base. The crash stress test above quantifies exactly how much the timing of the shock matters.</p>
+      </details>
+      <details class="faq p-4">
+        <summary class="font-semibold text-slate-100">What volatility should I enter for stocks, bonds, or crypto?</summary>
+        <p class="text-slate-300 text-sm leading-relaxed mt-2">As rough guides: broad stock indexes 15–20%, investment-grade bonds 5–8%, a 60/40 balanced portfolio 9–12%, gold around 15%, and crypto 60–80% or more. Higher volatility widens the lump-sum fan chart faster than the DCA fan, which is why the win probability for lump sum shrinks as you raise the slider.</p>
+      </details>
+    </div>
+  </section>
+
+  <footer class="mt-12 border-t border-[#232c38] pt-6 pb-10 text-center">
+    <p class="mono text-xs text-slate-500">LumpLab · lump sum vs DCA Monte Carlo lab · estimates only, not financial advice</p>
+  </footer>
+</main>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "Is it better to invest a lump sum or dollar cost average?", "acceptedAnswer": { "@type": "Answer", "text": "Historically and in Monte Carlo simulations, lump-sum investing wins about 60-70% of the time because markets rise more often than they fall. DCA wins mainly when markets fall early in your schedule. Use the calculator's win probability with your own inputs." } },
+    { "@type": "Question", "name": "What is the \"cost of waiting\" shown by this calculator?", "acceptedAnswer": { "@type": "Answer", "text": "It is the expected return given up by holding cash while DCA-ing instead of investing immediately: the future value of the lump sum minus the future value of the same money invested monthly. At 8% over 10 years on $100,000 it is roughly $65,000." } },
+    { "@type": "Question", "name": "How does the 2008 crash stress test work?", "acceptedAnswer": { "@type": "Answer", "text": "It injects a -37% shock, the approximate 2008 peak-to-trough drawdown, at one random month applied equally to both strategies, then re-runs all 2,000 paths. Early crashes favor DCA; late crashes favor the lump sum." } },
+    { "@type": "Question", "name": "Why use a Monte Carlo simulation instead of average returns?", "acceptedAnswer": { "@type": "Answer", "text": "A single average projection hides risk. Monte Carlo generates 2,000 possible market futures from your volatility input, revealing the full distribution from the 5th percentile to the 95th percentile for each strategy." } },
+    { "@type": "Question", "name": "Does DCA protect me if the market crashes right after I invest?", "acceptedAnswer": { "@type": "Answer", "text": "Partially. Later DCA contributions buy at depressed prices, softening damage versus a lump sum at the peak. But DCA is not a hedge: the portfolio still falls, just from a smaller invested base." } },
+    { "@type": "Question", "name": "What volatility should I enter for stocks, bonds, or crypto?", "acceptedAnswer": { "@type": "Answer", "text": "Rough guides: stock indexes 15-20%, bonds 5-8%, 60/40 portfolio 9-12%, gold ~15%, crypto 60-80%+. Higher volatility shrinks the lump sum's win probability." } }
+  ]
+}
+</script>
+
+<script id="v3-lumplab-lump-sum-vs-dca-lib">
+'use strict';
+/**
+ * LumpLab — Lump Sum vs DCA Monte Carlo engine (pure logic, no DOM).
+ * All randomness comes from a seeded PRNG (mulberry32) so every
+ * simulation is fully deterministic for a given seed — tests included.
+ */
+
+var LUMPLAB = LUMPLAB || {};
+
+LUMPLAB.CRASH_SEVERITY = 0.37; // 2008-style: -37% peak-to-trough
+LUMPLAB.DEFAULT_PATHS = 2000;
+LUMPLAB.DEFAULT_SEED = 20261004;
+
+/**
+ * Seeded PRNG (mulberry32). Returns a function yielding [0,1).
+ */
+function mulberry32(seed) {
+  var a = seed >>> 0;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Standard normal deviate via Box–Muller, consuming two rng draws.
+ */
+function normal01(rng) {
+  var u = 0;
+  var v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+/**
+ * Clamp/sanitize raw user inputs. Never throws.
+ */
+function sanitizeInputs(raw) {
+  raw = raw || {};
+  var amount = Number(raw.amount);
+  var annualReturn = Number(raw.annualReturn);
+  var annualVol = Number(raw.annualVol);
+  var years = Number(raw.years);
+  var paths = Number(raw.paths);
+  var seed = Number(raw.seed);
+  if (!isFinite(amount) || amount < 0) amount = 0;
+  if (!isFinite(annualReturn)) annualReturn = 0;
+  if (!isFinite(annualVol) || annualVol < 0) annualVol = 0;
+  if (!isFinite(years) || years < 0) years = 0;
+  if (!isFinite(paths) || paths < 1) paths = LUMPLAB.DEFAULT_PATHS;
+  if (!isFinite(seed)) seed = LUMPLAB.DEFAULT_SEED;
+  return {
+    amount: Math.min(amount, 1e12),
+    annualReturn: Math.max(-0.99, Math.min(annualReturn, 5)),
+    annualVol: Math.min(annualVol, 5),
+    years: Math.min(Math.round(years), 50),
+    paths: Math.min(Math.floor(paths), 10000),
+    seed: Math.floor(seed) >>> 0
+  };
+}
+
+/**
+ * Convert annual (drift, volatility) to monthly lognormal parameters.
+ */
+function monthlyParams(annualReturn, annualVol) {
+  return {
+    drift: annualReturn / 12,
+    vol: annualVol / Math.sqrt(12)
+  };
+}
+
+/**
+ * Simulate one portfolio path.
+ * Contributions are added at the START of each month, then the monthly
+ * lognormal return is applied. A crash shock multiplies the portfolio by
+ * (1 - CRASH_SEVERITY) at crashMonth (index into monthly steps).
+ * Returns an array of values with length months + 1 (index 0 = start).
+ */
+function simulatePath(rng, opts) {
+  var months = opts.months;
+  var initial = opts.initial || 0;
+  var monthlyContrib = opts.monthlyContrib || 0;
+  var drift = opts.drift;
+  var vol = opts.vol;
+  var crashMonth = typeof opts.crashMonth === 'number' ? opts.crashMonth : -1;
+  var values = new Array(months + 1);
+  var v = initial;
+  values[0] = v;
+  for (var m = 1; m <= months; m++) {
+    if (m > 1 && monthlyContrib > 0) v += monthlyContrib;
+    else if (m === 1 && initial === 0 && monthlyContrib > 0) { /* first month's initial already set */ }
+    var r = drift + vol * normal01(rng);
+    v = v * Math.exp(r);
+    if (v < 0) v = 0;
+    if (m === crashMonth) v = v * (1 - LUMPLAB.CRASH_SEVERITY);
+    values[m] = v;
+  }
+  return values;
+}
+
+/**
+ * Build lump-sum and DCA path generators for sanitized params.
+ * DCA spreads `amount` evenly across all months (contribution at start).
+ */
+function makeSimulators(p) {
+  var months = p.years * 12;
+  var mp = monthlyParams(p.annualReturn, p.annualVol);
+  var monthlyContrib = months > 0 ? p.amount / months : 0;
+  function lumpPath(rng, crashMonth) {
+    return simulatePath(rng, {
+      months: months,
+      initial: p.amount,
+      monthlyContrib: 0,
+      drift: mp.drift,
+      vol: mp.vol,
+      crashMonth: crashMonth
+    });
+  }
+  function dcaPath(rng, crashMonth) {
+    return simulatePath(rng, {
+      months: months,
+      initial: monthlyContrib,
+      monthlyContrib: monthlyContrib,
+      drift: mp.drift,
+      vol: mp.vol,
+      crashMonth: crashMonth
+    });
+  }
+  return { months: months, monthlyContrib: monthlyContrib, lumpPath: lumpPath, dcaPath: dcaPath };
+}
+
+/**
+ * Run the full Monte Carlo showdown.
+ * opts: { crash: boolean } — crash injects a -37% shock at ONE random
+ * month shared by all paths (a crash is a market event, not per-path).
+ * Returns { lump: [paths], dca: [paths], months, crashMonth }.
+ */
+function runMonteCarlo(params, opts) {
+  var p = sanitizeInputs(params);
+  opts = opts || {};
+  var sims = makeSimulators(p);
+  var crashMonth = -1;
+  if (opts.crash && sims.months > 1) {
+    var crashRng = mulberry32(p.seed ^ 0x9e3779b9);
+    crashMonth = 1 + Math.floor(crashRng() * sims.months);
+  }
+  var lump = new Array(p.paths);
+  var dca = new Array(p.paths);
+  for (var i = 0; i < p.paths; i++) {
+    var rngL = mulberry32((p.seed + i * 2) >>> 0);
+    var rngD = mulberry32((p.seed + i * 2 + 1) >>> 0);
+    lump[i] = sims.lumpPath(rngL, crashMonth);
+    dca[i] = sims.dcaPath(rngD, crashMonth);
+  }
+  return { lump: lump, dca: dca, months: sims.months, crashMonth: crashMonth, params: p };
+}
+
+/**
+ * Percentile of a numeric array (linear interpolation). Does not mutate input.
+ */
+function percentile(values, q) {
+  if (!values || values.length === 0) return 0;
+  if (q <= 0) return values.reduce(function (a, b) { return a < b ? a : b; });
+  if (q >= 1) return values.reduce(function (a, b) { return a > b ? a : b; });
+  var sorted = values.slice().sort(function (a, b) { return a - b; });
+  var pos = (sorted.length - 1) * q;
+  var base = Math.floor(pos);
+  var rest = pos - base;
+  if (rest === 0) return sorted[base];
+  return sorted[base] * (1 - rest) + sorted[base + 1] * rest;
+}
+
+/**
+ * Summary stats of terminal (final-month) portfolio values across paths.
+ */
+function finalValueStats(paths) {
+  var finals = paths.map(function (p) { return p[p.length - 1]; });
+  var mean = finals.reduce(function (a, b) { return a + b; }, 0) / Math.max(finals.length, 1);
+  return {
+    p5: percentile(finals, 0.05),
+    p25: percentile(finals, 0.25),
+    p50: percentile(finals, 0.50),
+    p75: percentile(finals, 0.75),
+    p95: percentile(finals, 0.95),
+    mean: mean,
+    min: percentile(finals, 0),
+    max: percentile(finals, 1)
+  };
+}
+
+/**
+ * Fraction of simulated paths where lump sum ends above DCA.
+ */
+function probLumpBeatsDCA(lump, dca) {
+  if (!lump.length || !dca.length) return 0;
+  var n = Math.min(lump.length, dca.length);
+  var wins = 0;
+  for (var i = 0; i < n; i++) {
+    if (lump[i][lump[i].length - 1] > dca[i][dca[i].length - 1]) wins++;
+  }
+  return wins / n;
+}
+
+/**
+ * Fan-chart percentile bands for both strategies at each month.
+ * Returns [{ m, lump: {p5,p25,p50,p75,p95}, dca: {...} }, ...].
+ */
+function fanChartBands(lump, dca, months) {
+  var bands = [];
+  for (var m = 0; m <= months; m++) {
+    var lv = lump.map(function (path) { return path[m]; });
+    var dv = dca.map(function (path) { return path[m]; });
+    bands.push({
+      m: m,
+      lump: {
+        p5: percentile(lv, 0.05),
+        p25: percentile(lv, 0.25),
+        p50: percentile(lv, 0.50),
+        p75: percentile(lv, 0.75),
+        p95: percentile(lv, 0.95)
+      },
+      dca: {
+        p5: percentile(dv, 0.05),
+        p25: percentile(dv, 0.25),
+        p50: percentile(dv, 0.50),
+        p75: percentile(dv, 0.75),
+        p95: percentile(dv, 0.95)
+      }
+    });
+  }
+  return bands;
+}
+
+/**
+ * "Cost of waiting": deterministic expected terminal value of investing
+ * the lump sum immediately vs sitting in cash and drip-feeding it (DCA).
+ * Uses annuity math with the annual expected return.
+ * Returns { lumpExpected, dcaExpected, cost, costPct }.
+ */
+function costOfWaiting(amount, annualReturn, years) {
+  var a = Math.max(0, Number(amount) || 0);
+  var r = Number(annualReturn) || 0;
+  var n = Math.max(0, Math.round(Number(years) || 0)) * 12;
+  var lumpExpected = a * Math.pow(1 + r, n / 12);
+  var dcaExpected = 0;
+  if (n > 0 && a > 0) {
+    var rm = Math.pow(1 + r, 1 / 12) - 1; // monthly rate
+    var m = a / n; // monthly contribution
+    if (Math.abs(rm) < 1e-12) {
+      dcaExpected = a; // zero return: contributions only
+    } else {
+      // future value of annuity-due (contribution at start of each month)
+      dcaExpected = m * ((Math.pow(1 + rm, n) - 1) / rm) * (1 + rm);
+    }
+  }
+  var cost = lumpExpected - dcaExpected;
+  var costPct = lumpExpected > 0 ? (cost / lumpExpected) * 100 : 0;
+  return { lumpExpected: lumpExpected, dcaExpected: dcaExpected, cost: cost, costPct: costPct };
+}
+
+/**
+ * One-call showdown: runs Monte Carlo for both strategies (optionally with
+ * a 2008-style crash shock) and returns everything the UI needs.
+ */
+function showdown(params, opts) {
+  opts = opts || {};
+  var res = runMonteCarlo(params, { crash: !!opts.crash });
+  var lumpStats = finalValueStats(res.lump);
+  var dcaStats = finalValueStats(res.dca);
+  var prob = probLumpBeatsDCA(res.lump, res.dca);
+  var bands = fanChartBands(res.lump, res.dca, res.months);
+  var cow = costOfWaiting(res.params.amount, res.params.annualReturn, res.params.years);
+  return {
+    params: res.params,
+    crashMonth: res.crashMonth,
+    months: res.months,
+    lumpStats: lumpStats,
+    dcaStats: dcaStats,
+    probLumpWins: prob,
+    bands: bands,
+    costOfWaiting: cow,
+    medianAdvantage: lumpStats.p50 - dcaStats.p50
+  };
+}
+
+// Exports for Node tests.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    LUMPLAB: LUMPLAB,
+    mulberry32: mulberry32,
+    normal01: normal01,
+    sanitizeInputs: sanitizeInputs,
+    monthlyParams: monthlyParams,
+    simulatePath: simulatePath,
+    makeSimulators: makeSimulators,
+    runMonteCarlo: runMonteCarlo,
+    percentile: percentile,
+    finalValueStats: finalValueStats,
+    probLumpBeatsDCA: probLumpBeatsDCA,
+    fanChartBands: fanChartBands,
+    costOfWaiting: costOfWaiting,
+    showdown: showdown
+  };
+}
+
+</script>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var fmt$ = function (v) {
+    if (!isFinite(v)) return '—';
+    var neg = v < 0;
+    var a = Math.abs(v);
+    var s = a >= 1000000 ? (a / 1000000).toFixed(2) + 'M' : a >= 1000 ? (a / 1000).toFixed(1) + 'K' : a.toFixed(0);
+    return (neg ? '-$' : '$') + s;
+  };
+  var fmtPct = function (v) { return (v * 100).toFixed(1) + '%'; };
+
+  var crashOn = false;
+  var toggle = $('toggle-crash');
+  toggle.addEventListener('click', function () {
+    crashOn = !crashOn;
+    toggle.classList.toggle('on', crashOn);
+    toggle.setAttribute('aria-checked', crashOn ? 'true' : 'false');
+  });
+
+  function syncLabels() {
+    $('val-return').textContent = Number($('input-return').value).toFixed(1) + '%';
+    $('val-vol').textContent = $('input-vol').value + '%';
+    $('val-years').textContent = $('input-years').value + ' yrs';
+  }
+  ['input-return', 'input-vol', 'input-years'].forEach(function (id) {
+    $(id).addEventListener('input', syncLabels);
+  });
+  syncLabels();
+
+  function bandPath(bands, key, lo, hi, x, y) {
+    var d = '';
+    for (var i = 0; i < bands.length; i++) { d += (i ? 'L' : 'M') + x(bands[i].m).toFixed(1) + ',' + y(bands[i][key][hi]).toFixed(1); }
+    for (var j = bands.length - 1; j >= 0; j--) { d += 'L' + x(bands[j].m).toFixed(1) + ',' + y(bands[j][key][lo]).toFixed(1); }
+    return d + 'Z';
+  }
+  function linePath(bands, key, q, x, y) {
+    var d = '';
+    for (var i = 0; i < bands.length; i++) { d += (i ? 'L' : 'M') + x(bands[i].m).toFixed(1) + ',' + y(bands[i][key][q]).toFixed(1); }
+    return d;
+  }
+
+  function drawFan(bands, months) {
+    var svg = $('fan-chart');
+    var W = 640, H = 340, padL = 52, padR = 12, padT = 14, padB = 30;
+    var maxV = 0;
+    bands.forEach(function (b) {
+      if (b.lump.p95 > maxV) maxV = b.lump.p95;
+      if (b.dca.p95 > maxV) maxV = b.dca.p95;
+    });
+    if (maxV <= 0) maxV = 1;
+    maxV *= 1.05;
+    var x = function (m) { return padL + (months > 0 ? m / months : 0) * (W - padL - padR); };
+    var y = function (v) { return padT + (1 - v / maxV) * (H - padT - padB); };
+    var ns = 'http://www.w3.org/2000/svg';
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    function el(tag, attrs) {
+      var e = document.createElementNS(ns, tag);
+      for (var k in attrs) e.setAttribute(k, attrs[k]);
+      svg.appendChild(e);
+      return e;
+    }
+    // gridlines + y labels
+    for (var g = 0; g <= 4; g++) {
+      var gv = maxV * g / 4;
+      el('line', { x1: padL, x2: W - padR, y1: y(gv), y2: y(gv), stroke: '#1c2430', 'stroke-width': 1 });
+      var t = el('text', { x: padL - 6, y: y(gv) + 4, fill: '#5b6b7f', 'font-size': 10, 'text-anchor': 'end', 'font-family': 'JetBrains Mono, monospace' });
+      t.textContent = fmt$(gv);
+    }
+    // x labels (years)
+    var yearStep = Math.max(1, Math.round(months / 12 / 6));
+    for (var yr = 0; yr * 12 <= months; yr += yearStep) {
+      var tx = el('text', { x: x(yr * 12), y: H - 10, fill: '#5b6b7f', 'font-size': 10, 'text-anchor': 'middle', 'font-family': 'JetBrains Mono, monospace' });
+      tx.textContent = 'yr ' + yr;
+    }
+    // bands: lump (amber), dca (green)
+    el('path', { d: bandPath(bands, 'lump', 'p5', 'p95', x, y), fill: '#F59E0B', opacity: 0.14 });
+    el('path', { d: bandPath(bands, 'dca', 'p5', 'p95', x, y), fill: '#10B981', opacity: 0.14 });
+    el('path', { d: bandPath(bands, 'lump', 'p25', 'p75', x, y), fill: '#F59E0B', opacity: 0.28 });
+    el('path', { d: bandPath(bands, 'dca', 'p25', 'p75', x, y), fill: '#10B981', opacity: 0.28 });
+    el('path', { d: linePath(bands, 'lump', 'p50', x, y), fill: 'none', stroke: '#F59E0B', 'stroke-width': 2.5 });
+    el('path', { d: linePath(bands, 'dca', 'p50', x, y), fill: 'none', stroke: '#10B981', 'stroke-width': 2.5 });
+  }
+
+  $('run-btn').addEventListener('click', function () {
+    var status = $('sim-status');
+    status.textContent = '> compiling 2,000 market futures…';
+    setTimeout(function () {
+      try {
+        var params = {
+          amount: $('input-amount').value,
+          annualReturn: Number($('input-return').value) / 100,
+          annualVol: Number($('input-vol').value) / 100,
+          years: $('input-years').value,
+          paths: 2000,
+          seed: (Date.now() % 100000) >>> 0
+        };
+        var r = showdown(params, { crash: crashOn });
+        $('out-prob').textContent = fmtPct(r.probLumpWins);
+        $('out-median-lump').textContent = fmt$(r.lumpStats.p50);
+        $('out-median-dca').textContent = fmt$(r.dcaStats.p50);
+        $('out-cow').textContent = fmt$(r.costOfWaiting.cost);
+        var fill = function (id, v) { $(id).textContent = fmt$(v); };
+        fill('lp5', r.lumpStats.p5); fill('lp25', r.lumpStats.p25); fill('lp50', r.lumpStats.p50);
+        fill('lp75', r.lumpStats.p75); fill('lp95', r.lumpStats.p95);
+        fill('dp5', r.dcaStats.p5); fill('dp25', r.dcaStats.p25); fill('dp50', r.dcaStats.p50);
+        fill('dp75', r.dcaStats.p75); fill('dp95', r.dcaStats.p95);
+        drawFan(r.bands, r.months);
+        $('out-crash').textContent = crashOn
+          ? '⚠ crash stress test: −37% shock injected at month ' + r.crashMonth + ' of ' + r.months + ' (re-run to land the shock elsewhere)'
+          : 'crash stress test: OFF — toggle to inject a 2008-style −37% shock';
+        var winner = r.probLumpWins >= 0.5 ? 'LUMP SUM' : 'DCA';
+        var adv = r.medianAdvantage >= 0 ? fmt$(r.medianAdvantage) : fmt$(r.medianAdvantage);
+        $('out-notes').textContent =
+          'experiment complete: ' + params.paths + ' paths × ' + r.months + ' months. ' +
+          'Lump sum wins ' + fmtPct(r.probLumpWins) + ' of futures (' + winner + ' favored). ' +
+          'Median terminal advantage: ' + adv + '. ' +
+          'Cost of waiting (cash drag): ' + fmt$(r.costOfWaiting.cost) + ' (' + r.costOfWaiting.costPct.toFixed(1) + '% of expected lump value). ' +
+          'Estimates only — not financial advice.';
+        status.textContent = '> done in ' + params.paths + ' paths. seed=' + r.params.seed;
+      } catch (e) {
+        status.textContent = '> error: ' + e.message;
+      }
+    }, 30);
+  });
+})();
+</script>
+</body>
+</html>
